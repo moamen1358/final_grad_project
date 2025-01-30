@@ -1,0 +1,10 @@
+numpy==2.2.2
+pandas==2.2.3
+scikit-learn==1.6.1
+streamlit-webrtc==0.47.9
+onnxruntime-gpu==1.20.1
+streamlit==1.41.1
+opencv-python-headless==4.11.0.86
+chromadb==0.6.3
+insightface==0.7.3
+xlsxwriter==3.0.9
