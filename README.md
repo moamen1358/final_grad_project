@@ -39,7 +39,14 @@
     ```sh
     docker run -p 8501:8501 face_recognition_app
     ```
+    ```sh
+    docker run --gpus all -p 8501:8501 face_recognition_app_antelope
+    ```
+```sh
+docker pull moamen1358/face_recognition_app_antelope:latest
 
+docker run --gpus all -p 8501:8501 moamen1358/face_recognition_app_antelope 
+```
 
 
 ## Running the App
