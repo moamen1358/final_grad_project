@@ -5,3 +5,6 @@ store/
 attendance_system.db
 server.crt
 server.key
+vision_agent_tools/
+test/
+vid/

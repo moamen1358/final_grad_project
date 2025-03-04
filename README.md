@@ -44,9 +44,12 @@
     ```
 ```sh
 docker pull moamen1358/face_recognition_app_antelope:latest
-
 docker run --gpus all -p 8501:8501 moamen1358/face_recognition_app_antelope 
 ```
+ **run with main camera**
+ ```sh
+ docker run --gpus all --device /dev/video0:/dev/video0 -p 8501:8501 face_recognition_app_antelope
+ ```
 
 
 ## Running the App

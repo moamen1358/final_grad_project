@@ -5,21 +5,19 @@ from insightface.app import FaceAnalysis
 import sqlite3
 import json
 from datetime import datetime
+import os
+
 
 # Constants
 DATABASE_PATH = 'attendance_system.db'
 MODEL_ROOT = '/home/invisa/Desktop/my_grad_streamlit/insightface_model'
+# # MODEL_NAME = 'antelopev2'
 MODEL_NAME = 'buffalo_sc'
 
-# import os
 # # Get model path from environment variable
 # MODEL_ROOT = os.environ.get('INSIGHTFACE_MODEL_DIR', '/app/insightface_model')
-# MODEL_NAME = 'buffalo_sc'
+# MODEL_NAME = 'antelopev2'
 
-# Example usage with InsightFace
-from insightface.app import FaceAnalysis
-app = FaceAnalysis(name=MODEL_NAME, root=MODEL_ROOT)
-app.prepare(ctx_id=0, det_size=(640, 640))
 DETECTION_SIZE = (640, 640)
 
 # Initialize database

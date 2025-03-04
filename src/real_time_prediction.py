@@ -9,23 +9,19 @@ import json
 import uuid
 import os
 from datetime import datetime
+import time
 
-# Constants
 MODEL_ROOT = '/home/invisa/Desktop/my_grad_streamlit/insightface_model'
 MODEL_NAME = 'buffalo_sc'
 
 
-# # Get model path from environment variable
-# MODEL_ROOT = os.environ.get('INSIGHTFACE_MODEL_DIR', '/app/insightface_model')
-# MODEL_NAME = 'antelopev2'
 
 
-# Example usage with InsightFace
-from insightface.app import FaceAnalysis
-app = FaceAnalysis(name=MODEL_NAME, root=MODEL_ROOT)
-app.prepare(ctx_id=0, det_size=(640, 640))
+
+
+
 DETECTION_SIZE = (640, 640)
-RTSP_URL = "rtsp://admin:Admin%40123@192.168.1.64:554/Streaming/Channels/102"
+RTSP_URL = "rtsp://admin:Admin%40123@192.168.1.64:554/Streaming/Channels/101"
 CHROMA_STORE_PATH = "./store"
 DATABASE_PATH = 'attendance_system.db'
 
@@ -167,8 +163,12 @@ def show_real_time_prediction():
     st.header("Real-Time Face Recognition")
     threshold = st.slider("Recognition Threshold", 0.0, 1.0, 0.6)
 
-    # Video capture with increased buffer size
+    # Video capture with hic camera
     cap = cv2.VideoCapture(RTSP_URL)
+    # laptop camera
+    # cap = cv2.VideoCapture(0)
+    # video_path = '/home/invisa/Desktop/my_grad_streamlit/sisi.mp4'
+    # cap = cv2.VideoCapture(video_path)
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 2)
 
     if not cap.isOpened():
@@ -183,6 +183,7 @@ def show_real_time_prediction():
             break
         
         try:
+            # time.sleep(5)
             processed_frame = process_frame(frame, threshold, collection)
         except Exception as e:
             st.error(f"Error processing frame: {e}")
@@ -195,3 +196,7 @@ def show_real_time_prediction():
         stframe.image(processed_frame, channels="RGB", use_container_width=True)
 
     cap.release()
+
+
+if __name__ == "__main__":
+    show_real_time_prediction()
