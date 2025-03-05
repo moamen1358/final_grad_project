@@ -7,6 +7,7 @@ import plotly.graph_objects as go
 import time
 import random
 import math
+from streamlit.components.v1 import html
 
 # Page configuration
 st.set_page_config(
@@ -20,22 +21,15 @@ DATABASE_PATH = 'attendance_system.db'
 AUTO_REFRESH_INTERVAL = 30  # seconds
 
 # Custom CSS
-# Update the CSS for class grid
 st.markdown("""
 <style>
 .class-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    grid-gap: 20px;  /* Increased gap between cards */
+    grid-gap: 15px;  /* Consistent spacing between cards */
     margin-bottom: 15px;
 }
-.class-card {
-    height: 100%;
-    transition: transform 0.2s ease;
-}
-.class-card:hover {
-    transform: translateY(-3px);
-}
+...
 </style>
 """, unsafe_allow_html=True)
 def get_db_connection():
@@ -435,6 +429,440 @@ def create_hourly_attendance_chart(hourly_df):
     
     return fig
 
+# Fix the real_time_clock function (around line 379-408):
+def real_time_clock():
+    """Display a real-time clock that updates every second using JavaScript"""
+    clock_html = """
+    <div id="real_time_clock" style="font-size:1.2rem; font-weight:bold; color:#555; margin:10px 0;">
+        <span id="clock"></span>
+    </div>
+
+    <script>
+    function updateClock() {
+        const now = new Date();
+        let hours = now.getHours();
+        const minutes = now.getMinutes().toString().padStart(2, '0');
+        const seconds = now.getSeconds().toString().padStart(2, '0');
+        let ampm = hours >= 12 ? 'PM' : 'AM';
+        
+        // Convert to 12-hour format
+        hours = hours % 12;
+        hours = hours ? hours : 12; // the hour '0' should be '12'
+        
+        // Display the time
+        document.getElementById('clock').textContent = 
+            hours + ':' + minutes + ':' + seconds + ' ' + ampm;
+        
+        // Call this function again in 1000ms (1 second)
+        setTimeout(updateClock, 1000);
+    }
+    
+    // Start the clock when the page loads
+    updateClock();
+    </script>
+    """
+    return html(clock_html, height=40)
+
+# Modify the get_dynamic_time_card function to use an iframe for proper JavaScript execution:
+
+def get_dynamic_time_card_html(subject, subject_type, start_time, end_time, is_current, is_past, attended, show_attendance, time_status, time_color, card_id):
+    """Create a class card with dynamic time updates using an HTML component"""
+    
+    # Determine if we need a countdown timer
+    needs_countdown = not is_current and not is_past
+    
+    # Parse the start time
+    try:
+        # Try AM/PM format
+        start_time_parts = start_time.split(' ')
+        if len(start_time_parts) == 2:  # AM/PM format
+            time_part = start_time_parts[0]
+            am_pm = start_time_parts[1]
+            time_hours, time_minutes = time_part.split(':')
+            military_hour = int(time_hours)
+            if am_pm == 'PM' and military_hour < 12:
+                military_hour += 12
+            elif am_pm == 'AM' and military_hour == 12:
+                military_hour = 0
+        else:  # 24-hour format
+            time_hours, time_minutes = start_time.split(':')
+            military_hour = int(time_hours)
+    except Exception as e:
+        print(f"Error parsing time: {e}")
+        military_hour = 0
+        time_minutes = 0
+    
+    # Generate the same card HTML but now with inline JavaScript if it's an upcoming class
+    if is_current:
+        # Current class card
+        card_html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                .class-card {{
+                    padding: 15px; 
+                    border-radius: 10px;
+                    border: 2px solid #FF9800;
+                    background-color: white;
+                    text-align: center;
+                    box-shadow: 0 4px 10px rgba(255, 152, 0, 0.2);
+                    height: 100%;
+                }}
+                .header-banner {{
+                    background-color: #FF9800;
+                    color: white;
+                    padding: 8px;
+                    margin: -15px -15px 10px -15px;
+                    border-radius: 10px 10px 0 0;
+                    text-align: center;
+                }}
+                h3 {{
+                    margin: 0;
+                    color: black;
+                    font-size: 1.2em;
+                    text-align: center;
+                    font-weight: 600;
+                }}
+                .attendance-badge {{
+                    margin-top: 12px;
+                    padding: 8px;
+                    border-radius: 6px;
+                    background-color: {"#4CAF50" if attended else "#f44336"};
+                    border: none;
+                    text-align: center;
+                }}
+                .badge-text {{
+                    margin: 0;
+                    font-weight: bold;
+                    color: white;
+                    font-size: 1.1em;
+                    text-shadow: 0 1px 1px rgba(0,0,0,0.2);
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="class-card">
+                <div class="header-banner">
+                    <strong style="font-size:1.1em;">📌 CURRENT CLASS</strong>
+                </div>
+                <h3>{subject}</h3>
+                <p style="color:black; margin:4px 0; text-align:center;">
+                    <strong>({'Lecture' if subject_type == 'lec' else 'Section'})</strong>
+                </p>
+                <p style="font-size:1.1em; margin:10px 0; text-align:center; color:#333333;"><strong>⏰ {start_time} - {end_time}</strong></p>
+                <p style="margin:0; color:{time_color}; font-weight:bold; text-align:center;">
+                    <span>{time_status}</span>
+                </p>
+                {f'''
+                <div class="attendance-badge">
+                    <p class="badge-text">{"✅ ATTENDED" if attended else "❌ ABSENT"}</p>
+                </div>''' if show_attendance else ''}
+            </div>
+        </body>
+        </html>
+        """
+    elif is_past:
+        # Past class
+        attendance_color = '#2E7D32' if attended else '#C62828'
+        card_html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                .class-card {{
+                    padding: 15px; 
+                    border-radius: 10px;
+                    border: 2px solid {attendance_color};
+                    background-color: white;
+                    text-align: center;
+                    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+                    height: 100%;
+                }}
+                h3 {{
+                    margin: 0;
+                    color: black;
+                    font-size: 1.3em;
+                    font-weight: 600;
+                }}
+                .attendance-badge {{
+                    margin-top: 12px;
+                    padding: 8px;
+                    border-radius: 6px;
+                    background-color: {"#4CAF50" if attended else "#f44336"};
+                    border: none;
+                }}
+                .badge-text {{
+                    margin: 0;
+                    font-weight: bold;
+                    color: white;
+                    font-size: 1.1em;
+                    text-shadow: 0 1px 1px rgba(0,0,0,0.2);
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="class-card">
+                <h3>{subject}</h3>
+                <p style="color:black; margin:4px 0;">
+                    <strong>({'Lecture' if subject_type == 'lec' else 'Section'})</strong>
+                </p>
+                <p style="font-size:1.1em; margin:10px 0; color:#333333;"><strong>⏰ {start_time} - {end_time}</strong></p>
+                <p style="margin:0; color:#555555; font-weight:500;">
+                    <span>{time_status}</span>
+                </p>
+                <div class="attendance-badge">
+                    <p class="badge-text">{"✅ ATTENDED" if attended else "❌ ABSENT"}</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+    else:
+        # Upcoming class with JavaScript countdown
+        card_html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                .class-card {{
+                    padding: 15px; 
+                    border-radius: 10px;
+                    border: 1px solid #2196F3;
+                    background-color: white;
+                    text-align: center;
+                    box-shadow: 0 2px 8px rgba(33, 150, 243, 0.15);
+                    height: 100%;
+                }}
+                h3 {{
+                    margin: 0;
+                    color: black;
+                    font-size: 1.3em;
+                    font-weight: 600;
+                }}
+                .attendance-badge {{
+                    margin-top: 12px;
+                    padding: 8px;
+                    border-radius: 6px;
+                    background-color: #2196F3;  /* Changed from #FF9800 (orange) to #2196F3 (blue) to match timeline */
+                    border: none;
+                    text-align: center;
+                }}
+                .badge-text {{
+                    margin: 0;
+                    font-weight: bold;
+                    color: white;
+                    font-size: 1.1em;
+                    text-shadow: 0 1px 1px rgba(0,0,0,0.2);
+                }}
+            </style>
+            <script>
+                // Wait for the document to be ready
+                document.addEventListener("DOMContentLoaded", function() {{
+                    // Function to update the countdown
+                    function updateCountdown() {{
+                        const now = new Date();
+                        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), {military_hour}, {time_minutes}, 0);
+                        
+                        // If target is in the past, don't show countdown
+                        if (today < now) {{
+                            document.getElementById("countdown").textContent = "Started";
+                            document.getElementById("countdown").style.color = "#FF9800";
+                            return;
+                        }}
+                        
+                        // Calculate time difference
+                        const diff = today - now;
+                        const hours = Math.floor(diff / (1000 * 60 * 60));
+                        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+                        
+                        // Format the countdown text
+                        const countdownText = hours > 0 
+                            ? `${{hours}}h ${{minutes}}m ${{seconds}}s` 
+                            : `${{minutes}}m ${{seconds}}s`;
+                        
+                        // Update the element
+                        document.getElementById("countdown").textContent = countdownText;
+                        
+                        // Check if class has started
+                        if (diff <= 0) {{
+                            document.getElementById("status").textContent = "CLASS IN PROGRESS";
+                            document.getElementById("status").style.color = "#FF9800";
+                            return;
+                        }}
+                        
+                        // Call this function again in 1 second
+                        setTimeout(updateCountdown, 1000);
+                    }}
+                    
+                    // Start the countdown immediately
+                    updateCountdown();
+                }});
+            </script>
+        </head>
+        <body>
+            <div class="class-card">
+                <h3>{subject}</h3>
+                <p style="color:black; margin:4px 0;">
+                    <strong>({'Lecture' if subject_type == 'lec' else 'Section'})</strong>
+                </p>
+                <p style="font-size:1.1em; margin:10px 0; color:#333333;"><strong>⏰ {start_time} - {end_time}</strong></p>
+                <p style="margin:0; color:#0277BD; font-weight:bold;">
+                    <span id="status">Starts in <span id="countdown">{time_status.replace('Starts in ', '')}</span></span>
+                </p>
+                <div class="attendance-badge">
+                    <p class="badge-text">🕒 COMING UP</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+    
+    return card_html
+
+# Add this function for dynamic welcome message
+def welcome_countdown_html(student_name, next_class=None, missed_count=0, attended_all=False, no_classes=False):
+    """Create HTML for a welcome message with dynamic countdown if there's a next class"""
+    
+    if next_class is not None:
+        # Parse the next class time
+        start_time = next_class['start_time']
+        subject = next_class['subject']
+        
+        try:
+            # Try AM/PM format
+            start_time_parts = start_time.split(' ')
+            if len(start_time_parts) == 2:  # AM/PM format
+                time_part = start_time_parts[0]
+                am_pm = start_time_parts[1]
+                time_hours, time_minutes = time_part.split(':')
+                military_hour = int(time_hours)
+                if am_pm == 'PM' and military_hour < 12:
+                    military_hour += 12
+                elif am_pm == 'AM' and military_hour == 12:
+                    military_hour = 0
+            else:  # 24-hour format
+                time_hours, time_minutes = start_time.split(':')
+                military_hour = int(time_hours)
+        except Exception as e:
+            print(f"Error parsing time: {e}")
+            military_hour = 0
+            time_minutes = 0
+        
+        if missed_count > 0:
+            message_html = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <script>
+                    document.addEventListener("DOMContentLoaded", function() {{
+                        function updateWelcomeCountdown() {{
+                            const now = new Date();
+                            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), {military_hour}, {time_minutes}, 0);
+                            
+                            if (today < now) {{
+                                document.getElementById("next-class-time").textContent = "now";
+                                return;
+                            }}
+                            
+                            const diff = today - now;
+                            const hours = Math.floor(diff / (1000 * 60 * 60));
+                            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+                            
+                            const countdownText = hours > 0 
+                                ? `${{hours}}h ${{minutes}}m ${{seconds}}s` 
+                                : `${{minutes}}m ${{seconds}}s`;
+                            
+                            document.getElementById("next-class-time").textContent = countdownText;
+                            setTimeout(updateWelcomeCountdown, 1000);
+                        }}
+                        updateWelcomeCountdown();
+                    }});
+                </script>
+            </head>
+            <body>
+                <div style="background-color: #FFF3E0; color: #E65100; padding: 15px; border-radius: 5px; border-left: 5px solid #FF9800;">
+                    <div style="font-size: 16px; font-weight: bold;">
+                        👋 Welcome {student_name}. You missed {missed_count} {'class' if missed_count == 1 else 'classes'} today. 
+                        Your next class is <strong>{subject}</strong> and starts in <span id="next-class-time">calculating...</span>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """
+        else:
+            message_html = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <script>
+                    document.addEventListener("DOMContentLoaded", function() {{
+                        function updateWelcomeCountdown() {{
+                            const now = new Date();
+                            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), {military_hour}, {time_minutes}, 0);
+                            
+                            if (today < now) {{
+                                document.getElementById("next-class-time").textContent = "now";
+                                return;
+                            }}
+                            
+                            const diff = today - now;
+                            const hours = Math.floor(diff / (1000 * 60 * 60));
+                            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+                            
+                            const countdownText = hours > 0 
+                                ? `${{hours}}h ${{minutes}}m ${{seconds}}s` 
+                                : `${{minutes}}m ${{seconds}}s`;
+                            
+                            document.getElementById("next-class-time").textContent = countdownText;
+                            setTimeout(updateWelcomeCountdown, 1000);
+                        }}
+                        updateWelcomeCountdown();
+                    }});
+                </script>
+            </head>
+            <body>
+                <div style="background-color: #E3F2FD; color: #0D47A1; padding: 15px; border-radius: 5px; border-left: 5px solid #2196F3;">
+                    <div style="font-size: 16px; font-weight: bold;">
+                        👋 Welcome {student_name}! Your next class is <strong>{subject}</strong> and starts in <span id="next-class-time">calculating...</span>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """
+    elif attended_all:
+        message_html = f"""
+        <div style="background-color: #E8F5E9; color: #2E7D32; padding: 15px; border-radius: 5px; border-left: 5px solid #4CAF50;">
+            <div style="font-size: 16px; font-weight: bold;">
+                👋 Well done, {student_name}! You have attended all your classes for today. ✅
+            </div>
+        </div>
+        """
+    elif missed_count > 0:
+        message_html = f"""
+        <div style="background-color: #FFEBEE; color: #C62828; padding: 15px; border-radius: 5px; border-left: 5px solid #F44336;">
+            <div style="font-size: 16px; font-weight: bold;">
+                👋 Welcome {student_name}. You have no more classes today, but you missed {missed_count} {'class' if missed_count == 1 else 'classes'} today.
+            </div>
+        </div>
+        """
+    else:
+        message_html = f"""
+        <div style="background-color: #E3F2FD; color: #0D47A1; padding: 15px; border-radius: 5px; border-left: 5px solid #2196F3;">
+            <div style="font-size: 16px; font-weight: bold;">
+                👋 Welcome {student_name}! There were no classes scheduled for today.
+            </div>
+        </div>
+        """
+    
+    return message_html
+
+# Update the show_student_report function to use these new components
+# In the section where you show welcome message:
+
 def show_student_report():
     """Display the advanced student attendance report page"""
     # Initialize session state for auto-refresh
@@ -457,27 +885,25 @@ def show_student_report():
     day_name = today.strftime('%A')
     current_time_obj = datetime.now().time()
     
-    # Create header with auto-refresh info
+    # Create header with auto-refresh info and real-time clock
     col1, col2 = st.columns([3, 1])
     with col1:
         st.title("📚 My Attendance Dashboard")
     with col2:
+        # Add real-time clock
+        real_time_clock()
+        
+        # Auto-refresh mechanism (keep this for page reloads)
         time_since_refresh = (datetime.now() - st.session_state.last_refresh).seconds
         next_refresh = max(0, AUTO_REFRESH_INTERVAL - time_since_refresh)
         
-        # Auto-refresh mechanism
         if time_since_refresh >= AUTO_REFRESH_INTERVAL:
             st.session_state.last_refresh = datetime.now()
             st.session_state.is_refreshing = True
             st.rerun()
         
-        st.markdown(f"""
-        <div style="text-align:right; margin-top:10px;">
-            <span class="time-counter">⏱️ Auto-refresh in: {next_refresh}s</span><br>
-            <span>Last updated: {st.session_state.last_refresh.strftime('%H:%M:%S')}</span>
-        </div>
-        """, unsafe_allow_html=True)
-    
+        st.caption(f"Auto-refresh in: {next_refresh}s • Last full update: {st.session_state.last_refresh.strftime('%H:%M:%S')}")
+
     # Get schedule for today
     schedule_df = get_schedule_for_day(day_name)
     
@@ -553,36 +979,37 @@ def show_student_report():
                     next_class = row
                     break
 
-            # Display appropriate welcome message
+            # Display appropriate welcome message with dynamic countdown
             if next_class is None:
                 # No more classes today
                 if past_classes > 0 and attended_past_classes == past_classes:
                     # Student attended all classes today
-                    st.success(f"👋 Well done, {student_name}! You have attended all your classes for today. ✅")
+                    welcome_message = welcome_countdown_html(student_name, attended_all=True)
                 elif past_classes > 0:
                     # Some classes were missed
                     missed = past_classes - attended_past_classes
-                    st.warning(f"👋 Welcome {student_name}. You have no more classes today, but you missed {missed} {'class' if missed == 1 else 'classes'} today.")
+                    welcome_message = welcome_countdown_html(student_name, missed_count=missed)
                 else:
                     # No classes were scheduled for today
-                    st.info(f"👋 Welcome {student_name}! There were no classes scheduled for today.")
+                    welcome_message = welcome_countdown_html(student_name, no_classes=True)
             else:
-                # There's an upcoming class
-                try:
-                    # Try to parse as AM/PM format first
-                    time_until = get_time_until(datetime.strptime(next_class['start_time'], '%I:%M %p').time())
-                except ValueError:
-                    # Fall back to 24-hour format
-                    time_until = get_time_until(datetime.strptime(next_class['start_time'], '%H:%M').time())
+                # There's an upcoming class - prepare it as a dictionary for the welcome_countdown_html function
+                next_class_dict = {
+                    'subject': next_class['subject'],
+                    'start_time': next_class['start_time']
+                }
                 
                 if past_classes > 0 and attended_past_classes < past_classes:
                     # Student missed some earlier classes
                     missed = past_classes - attended_past_classes
-                    st.warning(f"👋 Welcome {student_name}. You missed {missed} {'class' if missed == 1 else 'classes'} today. Your next class is **{next_class['subject']}** and starts in **{time_until}**.")
+                    welcome_message = welcome_countdown_html(student_name, next_class_dict, missed_count=missed)
                 else:
                     # Student has attended all previous classes (or there were none)
-                    st.info(f"👋 Welcome {student_name}! Your next class is **{next_class['subject']}** and starts in **{time_until}**.")
-            
+                    welcome_message = welcome_countdown_html(student_name, next_class_dict)
+
+            # Display the welcome message with HTML component to enable JavaScript
+            html(welcome_message, height=70)
+
             # Create interactive timeline
             st.subheader("📅 Today's Schedule")
             timeline_fig = create_timeline_chart(schedule_df, current_time_obj, student_name, date_str)
@@ -676,91 +1103,28 @@ def show_student_report():
                 attended = check_attendance(student_name, date_str, start_time, end_time)
                 show_attendance = is_current or is_past
                 
-                # Create animated CSS class for current class
-                animated_class = "current-class" if is_current else ""
+                # Create a unique ID for this card
+                card_id = f"card_{subject_idx}"
                 
-                # Create the HTML for each card
-                # For the current class card - replace the existing HTML structure
-                # For the current class card - update to white background
-                # Update the card HTML to make text more visible against white background
-                # For current class card
-                if is_current:
-                    # Current class card - updated with black text for subject name and type
-                    card_html = f"""
-                    <div class="class-card {animated_class}" style="padding:15px; border-radius:10px; border:2px solid #FF9800; 
-                    background-color:#ffffff; text-align:center; box-shadow:0 4px 10px rgba(255, 152, 0, 0.2);">
-                        <div style="background-color:#FF9800; color:white; padding:8px; margin:-15px -15px 10px -15px; border-radius:10px 10px 0 0; text-align:center">
-                            <strong style="font-size:1.1em;">📌 CURRENT CLASS</strong>
-                        </div>
-                        <h3 style="margin:0; color:#000000; font-size:1.2em; text-align:center; font-weight:600;">
-                            {subject} 
-                        </h3>
-                        <p style="color:#000000; margin:4px 0; text-align:center;">
-                            <strong>({'Lecture' if subject_type == 'lec' else 'Section'})</strong>
-                        </p>
-                        <p style="font-size:1.1em; margin:10px 0; text-align:center; color:#333333;"><strong>⏰ {start_time} - {end_time}</strong></p>
-                        <p style="margin:0; color:{time_color}; font-weight:bold; text-align:center;">
-                            {time_status}
-                        </p>
-                        {f'''<div style="margin-top:12px; padding:8px; border-radius:6px; 
-                        background-color:{"#4CAF50" if attended else "#f44336"};
-                        border:none; text-align:center;">
-                        <p style="margin:0; font-weight:bold; color:white; font-size:1.1em; text-shadow: 0 1px 1px rgba(0,0,0,0.2);">
-                            {"✅ ATTENDED" if attended else "❌ ABSENT"}
-                        </p>
-                        </div>''' if show_attendance else ''}
-                    </div>
-                    """
+                # Generate the card HTML with embedded JavaScript
+                card_html = get_dynamic_time_card_html(
+                    subject, 
+                    subject_type, 
+                    start_time, 
+                    end_time, 
+                    is_current, 
+                    is_past, 
+                    attended, 
+                    show_attendance, 
+                    time_status, 
+                    time_color, 
+                    card_id
+                )
+                
+                # Add the card to the grid using html component for proper JS execution
+                card_height = 220 if is_current else 200 if is_past else 180
+                html(card_html, height=card_height)
 
-                elif is_past:
-                    # Past class - updated with black text for subject name and type
-                    attendance_color = '#2E7D32' if attended else '#C62828'
-                    card_html = f"""
-                    <div class="class-card" style="padding:15px; border-radius:10px; 
-                        border:2px solid {attendance_color}; 
-                        background-color:#ffffff; 
-                        text-align:center; box-shadow:0 2px 8px rgba(0, 0, 0, 0.1);">
-                        <h3 style="margin:0; color:#000000; font-size:1.3em; font-weight:600;">
-                            {subject}
-                        </h3>
-                        <p style="color:#000000; margin:4px 0;">
-                            <strong>({'Lecture' if subject_type == 'lec' else 'Section'})</strong>
-                        </p>
-                        <p style="font-size:1.1em; margin:10px 0; color:#333333;"><strong>⏰ {start_time} - {end_time}</strong></p>
-                        <p style="margin:0; color:#555555; font-weight:500;">
-                            {time_status}
-                        </p>
-                        <div style="margin-top:12px; padding:8px; border-radius:6px; 
-                            background-color:{"#4CAF50" if attended else "#f44336"}; 
-                            border:none;">
-                            <p style="margin:0; font-weight:bold; color:white; font-size:1.1em; text-shadow: 0 1px 1px rgba(0,0,0,0.2);">
-                                {"✅ ATTENDED" if attended else "❌ ABSENT"}
-                            </p>
-                        </div>
-                    </div>
-                    """
-
-                else:
-                    # Upcoming class - updated with black text for subject name and type
-                    card_html = f"""
-                    <div class="class-card" style="padding:15px; border-radius:10px; border:1px solid #2196F3; 
-                    background-color:#ffffff; text-align:center; box-shadow:0 2px 8px rgba(33, 150, 243, 0.15);">
-                        <h3 style="margin:0; color:#000000; font-size:1.3em; font-weight:600;">
-                            {subject}
-                        </h3>
-                        <p style="color:#000000; margin:4px 0;">
-                            <strong>({'Lecture' if subject_type == 'lec' else 'Section'})</strong>
-                        </p>
-                        <p style="font-size:1.1em; margin:10px 0; color:#333333;"><strong>⏰ {start_time} - {end_time}</strong></p>
-                        <p style="margin:0; color:#0277BD; font-weight:bold;">
-                            {time_status}
-                        </p>
-                    </div>
-                    """
-                   
-                # Add the card to the grid
-                st.markdown(f'<div>{card_html}</div>', unsafe_allow_html=True)
-            
             # Close the grid container
             st.markdown('</div>', unsafe_allow_html=True)
             
