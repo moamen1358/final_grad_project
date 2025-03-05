@@ -50,7 +50,7 @@ def create_or_add_to_collection(collection_name, path_to_chroma="./store"):
 
         # Check if the collection already exists
         collection_names = client.list_collections()
-        if collection_name in collection_names:
+        if (collection_name in collection_names):
             collection = client.get_collection(name=collection_name)
         else:
             # Create a new collection if it doesn't exist
@@ -84,24 +84,29 @@ def create_or_add_to_collection(collection_name, path_to_chroma="./store"):
         st.error(f"Error creating or adding to the collection: {str(e)}")
         return None
 
-def log_attendance(name):
-    """Log attendance in the SQLite database"""
+def log_attendance(name, confidence, device_id=None):
+    """Log student attendance to the database"""
     try:
         conn = sqlite3.connect(DATABASE_PATH)
         cursor = conn.cursor()
         
-        # Check if the person already exists in the attendance log
-        cursor.execute("SELECT COUNT(*) FROM attendance_log WHERE name = ?", (name,))
-        count = cursor.fetchone()[0]
-        if count > 0:
-            return  # Do not log again if the name already exists
+        # Get current timestamp
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         
-        # Log the attendance
-        cursor.execute("INSERT INTO attendance_log (name, timestamp) VALUES (?, ?)", (name, datetime.now()))
+        # Insert attendance record
+        cursor.execute('''
+            INSERT INTO attendance_log (name, timestamp, confidence, device_id)
+            VALUES (?, ?, ?, ?)
+        ''', (name, timestamp, confidence, device_id or 'default'))
+        
         conn.commit()
-        conn.close()
+        return True
     except Exception as e:
-        st.error(f"Error logging attendance: {str(e)}")
+        print(f"Error logging attendance: {e}")
+        return False
+    finally:
+        if 'conn' in locals():
+            conn.close()
 
 def process_frame(frame, threshold=0.6, collection=None):
     """Process a frame with face recognition"""
@@ -119,7 +124,7 @@ def process_frame(frame, threshold=0.6, collection=None):
         
         # Log attendance if a person is recognized
         if name != "Unknown":
-            log_attendance(name)
+            log_attendance(name, confidence)
         # Draw results
         color = (0, 255, 0) if name != "Unknown" else (0, 0, 255)
         label = f"{name} ({confidence:.2f})" if name != "Unknown" else "Unknown"
@@ -164,9 +169,9 @@ def show_real_time_prediction():
     threshold = st.slider("Recognition Threshold", 0.0, 1.0, 0.6)
 
     # Video capture with hic camera
-    cap = cv2.VideoCapture(RTSP_URL)
+    # cap = cv2.VideoCapture(RTSP_URL)
     # laptop camera
-    # cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(0)
     # video_path = '/home/invisa/Desktop/my_grad_streamlit/sisi.mp4'
     # cap = cv2.VideoCapture(video_path)
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 2)

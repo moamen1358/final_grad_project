@@ -1,41 +1,28 @@
 import streamlit as st
 import home
-import report
-import registration_form
 import real_time_prediction
-from real_time_prediction import create_or_add_to_collection
-
+import report
+import student_report
+import db_explorer  # Import the new module
+import registration_form
 def show_app():
-    CHROMA_STORE_PATH = "./store"
-    st.title("Face Recognition App")
-
-    # Sidebar navigation
     st.sidebar.title("Navigation")
-    page = st.sidebar.radio("Go to", [
-        "Home", 
-        "Real-Time Prediction", 
-        "Registration Form", 
-        "Report"
-    ])
-
-    if page == "Home":
-        home.show_home()
-    elif page == "Real-Time Prediction":
-        real_time_prediction.show_real_time_prediction()
-    elif page == "Registration Form":
-        registration_form.show_registration_form()
-    elif page == "Report":
-        report.show_report()
-
-    # ChromaDB integration
-    create_or_add_to_collection("face_recognition", path_to_chroma=CHROMA_STORE_PATH)
-
-    # Exit button
-    st.sidebar.markdown("---")
-    if st.sidebar.button("Exit", key="exit_button"):
-        st.session_state.logged_in = False
-        del st.query_params["logged_in"]
-        st.rerun()
+    
+    # Create a dictionary mapping page names to their respective functions
+    pages = {
+        "Home": home.show_home,
+        "Real-Time Face Recognition": real_time_prediction.show_real_time_prediction,
+        "Regestration Form": registration_form.show_registration_form,
+        "Reports": report.show_report,
+        "Student Attendance": student_report.show_student_report,
+        "Database Explorer": db_explorer.show_db_explorer  # Add the new page
+    }
+    
+    # Create a radio button for navigation
+    selection = st.sidebar.radio("Go to", list(pages.keys()))
+    
+    # Call the selected page function
+    pages[selection]()
 
 if __name__ == "__main__":
     # This block only runs when app.py is executed directly

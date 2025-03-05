@@ -6,6 +6,7 @@ import sqlite3
 import json
 from datetime import datetime
 import os
+import uuid
 
 
 # Constants
@@ -97,6 +98,29 @@ def register_face_from_image(image, name):
         if 'conn' in locals():
             conn.close()
 
+def add_embedding_to_collection(name, embedding, collection):
+    """Add a single embedding to an existing ChromaDB collection"""
+    try:
+        if collection is None:
+            return False
+            
+        # Generate a unique ID for this embedding
+        embedding_id = str(uuid.uuid4())
+        
+        # Add the embedding to the collection
+        collection.add(
+            ids=[embedding_id],
+            documents=[name],
+            embeddings=[embedding],
+            metadatas=[{"name": name}]
+        )
+        
+        print(f"Added new embedding for {name} to collection")
+        return True
+    except Exception as e:
+        print(f"Error adding embedding to collection: {e}")
+        return False
+
 def show_registration_form():
     st.header("Registration Form")
     name = st.text_input("Name", key="reg_name")
@@ -148,7 +172,7 @@ def show_registration_form():
             file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
             image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
             if image is not None:
-                if register_face_from_image(image, f"{name}"):
+                if register_face_from_image(image, name):
                     success_count += 1
                 # Reset file pointer for potential future use
                 uploaded_file.seek(0)
