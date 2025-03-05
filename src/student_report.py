@@ -26,12 +26,19 @@ st.markdown("""
 .class-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    grid-gap: 15px;  /* Consistent spacing between cards */
+    grid-gap: 0px;  /* Reduced gap between cards */
     margin-bottom: 15px;
 }
-...
+.class-card {
+    height: 100%;
+    transition: transform 0.2s ease;
+}
+.class-card:hover {
+    transform: translateY(-3px);
+}
 </style>
 """, unsafe_allow_html=True)
+
 def get_db_connection():
     """Get a connection to the SQLite database"""
     return sqlite3.connect(DATABASE_PATH)
@@ -429,7 +436,6 @@ def create_hourly_attendance_chart(hourly_df):
     
     return fig
 
-# Fix the real_time_clock function (around line 379-408):
 def real_time_clock():
     """Display a real-time clock that updates every second using JavaScript"""
     clock_html = """
@@ -462,8 +468,6 @@ def real_time_clock():
     </script>
     """
     return html(clock_html, height=40)
-
-# Modify the get_dynamic_time_card function to use an iframe for proper JavaScript execution:
 
 def get_dynamic_time_card_html(subject, subject_type, start_time, end_time, is_current, is_past, attended, show_attendance, time_status, time_color, card_id):
     """Create a class card with dynamic time updates using an HTML component"""
@@ -640,21 +644,6 @@ def get_dynamic_time_card_html(subject, subject_type, start_time, end_time, is_c
                     font-size: 1.3em;
                     font-weight: 600;
                 }}
-                .attendance-badge {{
-                    margin-top: 12px;
-                    padding: 8px;
-                    border-radius: 6px;
-                    background-color: #2196F3;  /* Changed from #FF9800 (orange) to #2196F3 (blue) to match timeline */
-                    border: none;
-                    text-align: center;
-                }}
-                .badge-text {{
-                    margin: 0;
-                    font-weight: bold;
-                    color: white;
-                    font-size: 1.1em;
-                    text-shadow: 0 1px 1px rgba(0,0,0,0.2);
-                }}
             </style>
             <script>
                 // Wait for the document to be ready
@@ -711,9 +700,6 @@ def get_dynamic_time_card_html(subject, subject_type, start_time, end_time, is_c
                 <p style="margin:0; color:#0277BD; font-weight:bold;">
                     <span id="status">Starts in <span id="countdown">{time_status.replace('Starts in ', '')}</span></span>
                 </p>
-                <div class="attendance-badge">
-                    <p class="badge-text">🕒 COMING UP</p>
-                </div>
             </div>
         </body>
         </html>
@@ -870,10 +856,25 @@ def show_student_report():
         st.session_state.last_refresh = datetime.now()
         st.session_state.is_refreshing = False
     
-    # Check login status
+    # Check login status from both session state and query params
     if 'username' not in st.session_state:
-        st.error("Please log in to view your attendance")
-        return
+        # Check if logged_in parameter exists in URL
+        if "logged_in" in st.query_params and st.query_params["logged_in"] == "True":
+            if "username" in st.query_params:
+                # Restore login state from query parameters
+                st.session_state.logged_in = True
+                st.session_state.username = st.query_params["username"]
+            else:
+                st.error("Please log in to view your attendance")
+                st.stop()
+        else:
+            st.error("Please log in to view your attendance")
+            st.stop()
+    
+    # Ensure query parameters are updated with current session state
+    if 'username' in st.session_state:
+        st.query_params["logged_in"] = "True"
+        st.query_params["username"] = st.session_state.username
     
     # Get student name
     username = st.session_state.username
